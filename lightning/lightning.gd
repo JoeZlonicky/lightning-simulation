@@ -5,11 +5,11 @@ export (float) var TIME_BETWEEN_STRIKES = 0.1
 export (float) var NUM_STRIKES = 1
 export (float) var BRANCH_CHANCE = 0.05
 
-const GRID_SIZE = Vector2(50, 50)
-const GRID_SCALE = 5.0
+const GRID_SIZE = Vector2(100, 100)
+const GRID_SCALE = 2.0
 const GRID_COLOR = Color.white
 const LINE_COLOR = Color(1.0, 1.0, 1.0, 1.0)
-const LINE_WIDTH = 2.0
+const LINE_WIDTH = 1.0
 
 class LightningPath:
 	var path = PoolVector2Array()
