@@ -22,3 +22,8 @@ func _on_NStrikesSlider_value_changed(value):
 func _on_TimeBetweenStrikesSlider_value_changed(value):
 	$Settings/TimeBetweenStrikes/Number.text = "(" + str(value) + ")"
 	$Lightning.TIME_BETWEEN_STRIKES = value
+
+
+func _on_BranchChanceSlider_value_changed(value):
+	$Settings/BranchChance/Number.text = "(" + str(value) + ")"
+	$Lightning.BRANCH_CHANCE = value
