@@ -1,3 +1,9 @@
-[gd_scene format=2]
+[gd_scene load_steps=2 format=2]
 
-[node name="Lightning" type="Node2D"]
+[ext_resource path="res://lightning.gd" type="Script" id=1]
+
+[node name="Lightning" type="Sprite"]
+position = Vector2( 405.068, 215.837 )
+scale = Vector2( 2, 2 )
+centered = false
+script = ExtResource( 1 )
