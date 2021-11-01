@@ -7,7 +7,7 @@ export (float) var BRANCH_CHANCE = 0.05
 
 const GRID_SIZE = Vector2(100, 100)
 const GRID_SCALE = 2.0
-const GRID_COLOR = Color.white
+const GRID_COLOR = Color(1.0, 1.0, 1.0, 0.5)
 const LINE_COLOR = Color(1.0, 1.0, 1.0, 1.0)
 const LINE_WIDTH = 1.0
 
