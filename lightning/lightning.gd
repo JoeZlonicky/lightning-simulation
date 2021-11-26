@@ -1,29 +1,45 @@
 extends Sprite
 
 
-export (float) var BRANCH_CHANCE = 0.05
+signal simulation_completed
+
+export (float) var MAX_BRANCH_CHANCE = 0.5
 export (float) var TIME_BETWEEN_STRIKES = 0.1
 export (float) var NUM_OF_STRIKES = 200
+export (Curve) var BRANCH_CHANCE_CURVE
 export (Vector2) var CELL_WEIGHT_RANGE = Vector2(1.0, 10.0)
 
-const GRID_SIZE = Vector2(20, 20)
-const GRID_SCALE = 20.0
-const GRID_COLOR = Color(1.0, 1.0, 1.0, 0.2)
-const LINE_WIDTH = 2.0
+const GRID_SIZE = Vector2(10, 10)
+const GRID_SCALE = 40.0
+const GRID_POINTS_COLOR = Color(1.0, 1.0, 1.0, 0.2)
+const LINE_WIDTH = 3.0
 const LINE_COLOR = Color.white
 const SEGMENT_MAX_ANGLE = 16.0 / 180.0 * PI
 const REMENANT_WEIGHT = 2.0
 
 
 class LightningPath:
-	var path = PoolVector2Array()
-	var ids = PoolIntArray()
-	var draw_path = PoolVector2Array()
+	var points = PoolVector2Array()
+	var point_ids = PoolIntArray()
+	var draw_points = PoolVector2Array()
 	var tier = 1
+	var parent_path = null
+	var parent_path_branch_idx
 	
 	func add_point(id, point):
-		ids.append(id)
-		path.append(point)
+		point_ids.append(id)
+		points.append(point)
+		draw_points.append(point)
+	
+	func insert_draw_point(i, point):
+		draw_points.insert(i, point)
+	
+	func update_draw_point(i, point):
+		draw_points[i] = point
+	
+	func set_parent_branch(p, parent_point_idx):
+		parent_path = p
+		parent_path_branch_idx = parent_point_idx
 
 
 var lightning_paths = []
@@ -31,12 +47,15 @@ var remenant_weights = []
 var astar_grid = AStar2D.new()
 var start_id = 0
 var end_id = GRID_SIZE.x * GRID_SIZE.y - 1
+var num_points_to_end = 0
 
 
+# Setup
 func _ready():
 	randomize()
 	var i = 0
 	
+	# Create astar grid
 	for y in GRID_SIZE.y:
 		remenant_weights.append([])
 		for x in GRID_SIZE.x:
@@ -45,6 +64,7 @@ func _ready():
 			remenant_weights[y].append(0.0)
 			i += 1
 	
+	# Connect grid points
 	for y in GRID_SIZE.y:
 		for x in GRID_SIZE.x:
 			i = y * GRID_SIZE.y + x
@@ -54,29 +74,35 @@ func _ready():
 				astar_grid.connect_points(i, i + GRID_SIZE.x, false)
 
 
-func generate():
+# Perform simulation
+func simulate():
 	lightning_paths.clear()
 	for i in NUM_OF_STRIKES:
 		strike()
 		if i != NUM_OF_STRIKES - 1:
 			yield(get_tree().create_timer(TIME_BETWEEN_STRIKES), "timeout")
-	
-	
-	
+	emit_signal("simulation_completed")
+
+
+# Perform a single lightning strike
 func strike():
+	# Make sure random number generation is seeded
 	randomize()
+	
+	# Reset weights
 	for y in GRID_SIZE.y:
 		for x in GRID_SIZE.x:
 			remenant_weights[y][x] = 0.0
 	
+	# Determine weights using last strike
 	for path in lightning_paths:
-		for p_idx in path.ids:
+		for p_idx in path.point_ids:
 			var x = int(p_idx % int(GRID_SIZE.x))
 			var y = int(p_idx / GRID_SIZE.y)
 			remenant_weights[y][x] = REMENANT_WEIGHT
-	
 	lightning_paths.clear()
 	
+	# Set random weights with influence from remenant weights
 	var i = 0
 	for y in GRID_SIZE.y:
 		for x in GRID_SIZE.x:
@@ -84,21 +110,38 @@ func strike():
 			w = clamp(w - remenant_weights[y][x], CELL_WEIGHT_RANGE.x, CELL_WEIGHT_RANGE.y)
 			astar_grid.set_point_weight_scale(i, w)
 			i += 1
-	create_lightning(start_id, end_id, 1.0)
-	update()
+	
+	# Calculcate length of primary path to determine how close to end
+	num_points_to_end = astar_grid.get_id_path(start_id, end_id).size()
+	
+	# Create primary lightning path (which may branch)
+	create_lightning(start_id, end_id)
+	update()  # Draw
 
 
-func create_lightning(from, to, tier, add_to_start=-1):
-	var lightning_path = LightningPath.new()
-	lightning_path.tier = tier
-	if add_to_start > -1:
-		lightning_path.add_point(add_to_start, astar_grid.get_point_position(add_to_start))
+# Create lightning path
+# May recursively branch
+func create_lightning(from, to, parent_branch=null, branch_point_idx=null):
+	var lightning = LightningPath.new()
+	lightning_paths.append(lightning)
+	
+	if parent_branch:
+		lightning.tier = parent_branch.tier * 2
+		var branch_point_id = parent_branch.point_ids[branch_point_idx]
+		lightning.add_point(branch_point_id, astar_grid.get_point_position(branch_point_id))
+		lightning.set_parent_branch(parent_branch, branch_point_idx)
+	
 	var astar_path = astar_grid.get_id_path(from, to)
+	
 	for i in astar_path.size():
-		var p_idx = astar_path[i]
-		lightning_path.add_point(p_idx, astar_grid.get_point_position(p_idx))
-		if randf() < BRANCH_CHANCE and i < astar_path.size() - 1:
-			var neighbors = astar_grid.get_point_connections(p_idx)
+		var p_id = astar_path[i]
+		lightning.add_point(p_id, astar_grid.get_point_position(p_id))
+		
+		var ratio = clamp(1.0 - (astar_path.size() - i) / float(num_points_to_end), 0.0, 1.0)
+		var branch_chance = MAX_BRANCH_CHANCE * BRANCH_CHANCE_CURVE.interpolate(ratio)
+		
+		if randf() < branch_chance and i < astar_path.size() - 1:
+			var neighbors = astar_grid.get_point_connections(p_id)
 			if neighbors.size() < 2:
 				continue
 			for neighbor in neighbors:
@@ -107,26 +150,39 @@ func create_lightning(from, to, tier, add_to_start=-1):
 					continue
 				if branch_path[0] == astar_path[i+1]:
 					continue
-				if branch_path[1] == p_idx:
+				if branch_path[1] == p_id:
 					continue
-				create_lightning(neighbor, to, tier * 2, p_idx)
+				create_lightning(neighbor, to, lightning, i)
 				break
-	
-	lightning_paths.append(lightning_path)
 
 func _draw():
-#	for point_index in astar_grid.get_points():
-#		var pos = astar_grid.get_point_position(point_index)
-#		draw_circle(pos, 1.0, GRID_COLOR)
+	for point_index in astar_grid.get_points():
+		var pos = astar_grid.get_point_position(point_index)
+		draw_circle(pos, 1.0, GRID_POINTS_COLOR)
+	
+	for lightning in lightning_paths:
+		var p_idx = 0
+		while p_idx < lightning.draw_points.size() - 1:
+			var p1 = lightning.draw_points[p_idx]
+			var p3 = lightning.draw_points[p_idx+1]
+			if lightning.tier > 1:
+				seed(int(p1.x) + int(p1.y))
+			var p2 = p1 + (p3-p1)/2.0 + GRID_SCALE * tan(rand_range(-SEGMENT_MAX_ANGLE, SEGMENT_MAX_ANGLE)) * (p3-p1).tangent().normalized()
+			lightning.insert_draw_point(p_idx + 1, p2)
+			p_idx += 2
+		
+		p_idx = 2
+		if lightning.parent_path:
+			lightning.update_draw_point(0, lightning.parent_path.draw_points[lightning.parent_path_branch_idx * 2])
+		
+		while p_idx < lightning.draw_points.size() - 1:
+			var p1 = lightning.draw_points[p_idx-1]
+			var p3 = lightning.draw_points[p_idx+1]
+			var p2 = p1 + (p3-p1)/2.0 + GRID_SCALE * tan(rand_range(-SEGMENT_MAX_ANGLE, SEGMENT_MAX_ANGLE)) * (p3-p1).tangent().normalized()
+			lightning.update_draw_point(p_idx, p2)
+			p_idx += 2
 	
 	for lightning in lightning_paths:
 		var color = LINE_COLOR
 		color.a = 1.0 / lightning.tier
-		for p_idx in lightning.path.size() - 1:
-			var p1 = lightning.path[p_idx]
-			var p3 = lightning.path[p_idx+1]
-			if lightning.tier > 1:
-				seed(int(p1.x) + int(p1.y))
-			var p2 = p1 + (p3-p1)/2.0 + GRID_SCALE * tan(rand_range(-SEGMENT_MAX_ANGLE, SEGMENT_MAX_ANGLE)) * (p3-p1).tangent().normalized()
-			draw_line(p1, p2, color, LINE_WIDTH)
-			draw_line(p2, p3, color, LINE_WIDTH)
+		draw_polyline(lightning.draw_points, color, LINE_WIDTH)

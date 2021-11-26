@@ -3,7 +3,7 @@
 [ext_resource path="res://lightning/lightning.tscn" type="PackedScene" id=1]
 [ext_resource path="res://demo/demo.gd" type="Script" id=2]
 
-[sub_resource type="Shader" id=3]
+[sub_resource type="Shader" id=1]
 code = "shader_type canvas_item;
 
 uniform float radius = 4.0;
@@ -27,8 +27,8 @@ void fragment() {
 	COLOR = sum * additive_strength + texture(SCREEN_TEXTURE, SCREEN_UV) * center_strength;
 }"
 
-[sub_resource type="ShaderMaterial" id=4]
-shader = SubResource( 3 )
+[sub_resource type="ShaderMaterial" id=2]
+shader = SubResource( 1 )
 shader_param/radius = 4.0
 shader_param/step_size = 1.0
 shader_param/sd = 10.0
@@ -44,11 +44,12 @@ __meta__ = {
 }
 
 [node name="Lightning" parent="." instance=ExtResource( 1 )]
+MAX_BRANCH_CHANCE = 0.25
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
-material = SubResource( 4 )
+material = SubResource( 2 )
 anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
@@ -107,7 +108,7 @@ margin_right = 227.0
 margin_bottom = 16.0
 rect_min_size = Vector2( 100, 0 )
 min_value = 1.0
-max_value = 10.0
+max_value = 50.0
 value = 1.0
 scrollable = false
 ticks_on_borders = true
@@ -136,7 +137,7 @@ margin_right = 269.0
 margin_bottom = 16.0
 rect_min_size = Vector2( 100, 0 )
 min_value = 0.025
-max_value = 0.5
+max_value = 0.2
 step = 0.025
 value = 0.1
 scrollable = false
@@ -166,7 +167,7 @@ margin_right = 209.0
 margin_bottom = 16.0
 rect_min_size = Vector2( 100, 0 )
 min_value = 0.001
-max_value = 0.05
+max_value = 0.25
 step = 0.001
 value = 0.01
 scrollable = false
