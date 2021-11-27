@@ -11,7 +11,7 @@ export (Vector2) var CELL_WEIGHT_RANGE = Vector2(1.0, 10.0)
 
 const GRID_SIZE = Vector2(10, 10)
 const GRID_SCALE = 40.0
-const GRID_POINTS_COLOR = Color(1.0, 1.0, 1.0, 0.2)
+const GRID_POINTS_COLOR = Color(1.0, 1.0, 1.0, 0.6)
 const LINE_WIDTH = 3.0
 const LINE_COLOR = Color.white
 const SEGMENT_MAX_ANGLE = 16.0 / 180.0 * PI
@@ -46,7 +46,8 @@ var lightning_paths = []
 var remenant_weights = []
 var astar_grid = AStar2D.new()
 var start_id = 0
-var end_id = GRID_SIZE.x * GRID_SIZE.y - 1
+var end_id = 9
+#var end_id = GRID_SIZE.x * GRID_SIZE.y - 1
 var num_points_to_end = 0
 
 
@@ -71,7 +72,11 @@ func _ready():
 			if x % int(GRID_SIZE.x) != GRID_SIZE.x - 1:
 				astar_grid.connect_points(i, i + 1, true)
 			if y % int(GRID_SIZE.y) != GRID_SIZE.y - 1:
-				astar_grid.connect_points(i, i + GRID_SIZE.x, false)
+				astar_grid.connect_points(i, i + GRID_SIZE.x, true)
+	
+	for y in GRID_SIZE.y - 1:
+		i = y * GRID_SIZE.y + 4
+		astar_grid.set_point_disabled(i, true)
 
 
 # Perform simulation
@@ -145,6 +150,8 @@ func create_lightning(from, to, parent_branch=null, branch_point_idx=null):
 			if neighbors.size() < 2:
 				continue
 			for neighbor in neighbors:
+				if astar_grid.is_point_disabled(neighbor):
+					continue
 				var branch_path = astar_grid.get_id_path(neighbor, to)
 				if branch_path.size() < 2:
 					continue
@@ -157,6 +164,8 @@ func create_lightning(from, to, parent_branch=null, branch_point_idx=null):
 
 func _draw():
 	for point_index in astar_grid.get_points():
+		if astar_grid.is_point_disabled(point_index):
+			continue
 		var pos = astar_grid.get_point_position(point_index)
 		draw_circle(pos, 1.0, GRID_POINTS_COLOR)
 	
