@@ -12,10 +12,13 @@ export (Vector2) var CELL_WEIGHT_RANGE = Vector2(1.0, 10.0)
 const GRID_SIZE = Vector2(10, 10)
 const GRID_SCALE = 40.0
 const GRID_POINTS_COLOR = Color(1.0, 1.0, 1.0, 0.6)
-const LINE_WIDTH = 3.0
-const LINE_COLOR = Color.white
+const PRIMARY_LINE_WIDTH = 3.0
+const SECONDARY_LINE_WIDTH = 15.0
+const PRIMARY_LINE_COLOR = Color.white
+const SECONDARY_LINE_COLOR = Color.white / 4.0
 const SEGMENT_MAX_ANGLE = 16.0 / 180.0 * PI
-const REMENANT_WEIGHT = 2.0
+const PRIMARY_REMENANT_WEIGHT = 3.0
+const SECONDARY_REMENANT_WEIGHT = 2.0
 
 
 class LightningPath:
@@ -47,7 +50,6 @@ var remenant_weights = []
 var astar_grid = AStar2D.new()
 var start_id = 0
 var end_id = 9
-#var end_id = GRID_SIZE.x * GRID_SIZE.y - 1
 var num_points_to_end = 0
 
 
@@ -104,7 +106,10 @@ func strike():
 		for p_idx in path.point_ids:
 			var x = int(p_idx % int(GRID_SIZE.x))
 			var y = int(p_idx / GRID_SIZE.y)
-			remenant_weights[y][x] = REMENANT_WEIGHT
+			if path.tier == 1:
+				remenant_weights[y][x] = PRIMARY_REMENANT_WEIGHT
+			elif remenant_weights[y][x] == 0:
+				remenant_weights[y][x] = SECONDARY_REMENANT_WEIGHT
 	lightning_paths.clear()
 	
 	# Set random weights with influence from remenant weights
@@ -130,6 +135,7 @@ func create_lightning(from, to, parent_branch=null, branch_point_idx=null):
 	var lightning = LightningPath.new()
 	lightning_paths.append(lightning)
 	
+	# Setup branching
 	if parent_branch:
 		lightning.tier = parent_branch.tier * 2
 		var branch_point_id = parent_branch.point_ids[branch_point_idx]
@@ -138,17 +144,27 @@ func create_lightning(from, to, parent_branch=null, branch_point_idx=null):
 	
 	var astar_path = astar_grid.get_id_path(from, to)
 	
+	# Go throw path, possibly branching along the way
 	for i in astar_path.size():
 		var p_id = astar_path[i]
 		lightning.add_point(p_id, astar_grid.get_point_position(p_id))
 		
+		# Don't branch at end
+		if i == astar_path.size() - 1:
+			continue
+		
+		# Determine branch chance using the max branch chance and the branch chance curve
 		var ratio = clamp(1.0 - (astar_path.size() - i) / float(num_points_to_end), 0.0, 1.0)
 		var branch_chance = MAX_BRANCH_CHANCE * BRANCH_CHANCE_CURVE.interpolate(ratio)
 		
-		if randf() < branch_chance and i < astar_path.size() - 1:
+		# Determine if a branch occurs
+		if randf() < branch_chance:
+			# Get adjacent cells
 			var neighbors = astar_grid.get_point_connections(p_id)
 			if neighbors.size() < 2:
 				continue
+			
+			# Find a neighbor to branch to
 			for neighbor in neighbors:
 				if astar_grid.is_point_disabled(neighbor):
 					continue
@@ -159,17 +175,22 @@ func create_lightning(from, to, parent_branch=null, branch_point_idx=null):
 					continue
 				if branch_path[1] == p_id:
 					continue
+				if i > 1 and branch_path[0] == astar_path[i-1]:
+					continue
 				create_lightning(neighbor, to, lightning, i)
 				break
 
 func _draw():
+	# Draw grid
 	for point_index in astar_grid.get_points():
 		if astar_grid.is_point_disabled(point_index):
 			continue
 		var pos = astar_grid.get_point_position(point_index)
 		draw_circle(pos, 1.0, GRID_POINTS_COLOR)
 	
+	# Update draw points
 	for lightning in lightning_paths:
+		# Add intermediate points
 		var p_idx = 0
 		while p_idx < lightning.draw_points.size() - 1:
 			var p1 = lightning.draw_points[p_idx]
@@ -180,10 +201,12 @@ func _draw():
 			lightning.insert_draw_point(p_idx + 1, p2)
 			p_idx += 2
 		
-		p_idx = 2
+		# Update branch start position, as they get adjusted in previous iterations
 		if lightning.parent_path:
 			lightning.update_draw_point(0, lightning.parent_path.draw_points[lightning.parent_path_branch_idx * 2])
 		
+		# Update original points using new intermediate points
+		p_idx = 2
 		while p_idx < lightning.draw_points.size() - 1:
 			var p1 = lightning.draw_points[p_idx-1]
 			var p3 = lightning.draw_points[p_idx+1]
@@ -191,7 +214,14 @@ func _draw():
 			lightning.update_draw_point(p_idx, p2)
 			p_idx += 2
 	
+	# Draw lightning
+	var primary_color = PRIMARY_LINE_COLOR
+	var secondary_color = SECONDARY_LINE_COLOR
 	for lightning in lightning_paths:
-		var color = LINE_COLOR
-		color.a = 1.0 / lightning.tier
-		draw_polyline(lightning.draw_points, color, LINE_WIDTH)
+		# Alpha is dependent on how many times it had branched
+		primary_color.a = PRIMARY_LINE_COLOR.a / lightning.tier
+		secondary_color.a = SECONDARY_LINE_COLOR.a / lightning.tier
+		
+		# Draw faint secondary line and brighter primary line
+		draw_polyline(lightning.draw_points, primary_color, PRIMARY_LINE_WIDTH)
+		draw_polyline(lightning.draw_points, secondary_color, SECONDARY_LINE_WIDTH)

@@ -11,6 +11,7 @@ func _physics_process(_delta):
 
 
 func _on_GenerateButton_pressed():
+	$CanvasLayer2/GenerateButton.disabled = true
 	$Lightning.simulate()
 
 
@@ -27,3 +28,7 @@ func _on_TimeBetweenStrikesSlider_value_changed(value):
 func _on_BranchChanceSlider_value_changed(value):
 	$CanvasLayer2/Settings/BranchChance/Number.text = "(" + str(value) + ")"
 	$Lightning.MAX_BRANCH_CHANCE = value
+
+
+func _on_Lightning_simulation_completed():
+	$CanvasLayer2/GenerateButton.disabled = false

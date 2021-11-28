@@ -180,6 +180,7 @@ margin_right = 249.0
 margin_bottom = 15.0
 text = "(0.01)"
 
+[connection signal="simulation_completed" from="Lightning" to="." method="_on_Lightning_simulation_completed"]
 [connection signal="pressed" from="CanvasLayer2/GenerateButton" to="." method="_on_GenerateButton_pressed"]
 [connection signal="value_changed" from="CanvasLayer2/Settings/NStrikes/NStrikesSlider" to="." method="_on_NStrikesSlider_value_changed"]
 [connection signal="value_changed" from="CanvasLayer2/Settings/TimeBetweenStrikes/TimeSlider" to="." method="_on_TimeBetweenStrikesSlider_value_changed"]
