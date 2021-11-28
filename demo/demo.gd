@@ -2,33 +2,46 @@ extends Control
 
 
 func _ready():
-	$CanvasLayer2/Settings/NStrikes/NStrikesSlider.value = $Lightning.NUM_OF_STRIKES
-	$CanvasLayer2/Settings/TimeBetweenStrikes/TimeSlider.value = $Lightning.TIME_BETWEEN_STRIKES
+	$UILayer/Settings/TimeBetweenStrikes/TimeSlider.value = $Lightning.TIME_BETWEEN_STRIKES
+	$UILayer/Settings/BranchChance/BranchChanceSlider.value = $Lightning.MAX_BRANCH_CHANCE
 
 
 func _physics_process(_delta):
-	$CanvasLayer2/FPSCounter.text = "FPS: " + str(Engine.get_frames_per_second())
+	$UILayer/FPSCounter.text = "FPS: " + str(Engine.get_frames_per_second())
 
 
-func _on_GenerateButton_pressed():
-	$CanvasLayer2/GenerateButton.disabled = true
+func _on_SimulateButton_pressed():
+	$UILayer/SimulateButton.disabled = true
 	$Lightning.simulate()
 
 
-func _on_NStrikesSlider_value_changed(value):
-	$CanvasLayer2/Settings/NStrikes/Number.text = "(" + str(int(value)) + ")"
-	$Lightning.NUM_OF_STRIKES = int(value)
-
-
 func _on_TimeBetweenStrikesSlider_value_changed(value):
-	$CanvasLayer2/Settings/TimeBetweenStrikes/Number.text = "(" + str(value) + ")"
+	$UILayer/Settings/TimeBetweenStrikes/Number.text = "(" + str(value) + ")"
 	$Lightning.TIME_BETWEEN_STRIKES = value
 
 
 func _on_BranchChanceSlider_value_changed(value):
-	$CanvasLayer2/Settings/BranchChance/Number.text = "(" + str(value) + ")"
+	$UILayer/Settings/BranchChance/Number.text = "(" + str(value) + ")"
 	$Lightning.MAX_BRANCH_CHANCE = value
 
 
-func _on_Lightning_simulation_completed():
-	$CanvasLayer2/GenerateButton.disabled = false
+func _on_SingleStrikeButton_pressed():
+	$Lightning.single_strike()
+
+
+func _on_StartStopButton_pressed():
+	if $UILayer/SimulationButtons/StartStopButton.pressed:
+		$UILayer/SimulationButtons/SingleStrikeButton.disabled = true
+		$Lightning.start_simulation()
+	else:
+		$UILayer/SimulationButtons/SingleStrikeButton.disabled = false
+		$Lightning.end_simulation()
+	
+
+
+func _on_Lightning_strike_completed():
+	$UILayer/PathNotFound.visible = false
+
+
+func _on_Lightning_path_not_found():
+	$UILayer/PathNotFound.visible = true
